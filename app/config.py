@@ -14,5 +14,8 @@ class Config:
     # Directory where ChromaDB will persist its data
     CHROMA_PATH = os.getenv("CHROMA_PATH", "./data/chroma_db")
 
+    # Number of recent context messages to retrieve (converted to integer)
+    MEMORY_N_RESULTS = int(os.getenv("MEMORY_N_RESULTS", 3))
+
 # Instantiate the configuration for easy import
 settings = Config()
