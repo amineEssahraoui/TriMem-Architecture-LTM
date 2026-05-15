@@ -16,10 +16,10 @@ def generate_response(prompt : str, system_prompt: str = "") -> str: # Empty Sys
             model = settings.LLM_MODEL,
             messages = messages
         )
-        return response['embedding']
+        return response['message']['content']
     except Exception as e: 
-        print(f"Error generating embedding: {e}")
-        return []
+        print(f"Error communicating with Ollama: {e}")
+        return "Sorry, I am having trouble connecting to my language model."
 
-    
 
+def 
