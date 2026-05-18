@@ -12,7 +12,7 @@ class EpisodicMemory:
             metadata={"hnsw:space": "cosine"}
         )
 
-    def add_interaction(self, user_id: str, user_message: str, ai_response: str, emmbeding: list[float]): 
+    def add_interaction(self, user_id: str, user_message: str, ai_response: str, embedding: list[float]):
         """
         Stores a single user-AI interaction in the vector database.
         """
@@ -23,7 +23,7 @@ class EpisodicMemory:
         content = f"User: {user_message}\n AI: {ai_response}"
         self.collection.add(
             ids = [memory_id], 
-            emmbeding = [emmbeding],
+            embeddings = [embedding],
             documents = [content], 
             metadatas = [{"user_id": user_id, "timestamp": timestamp}] # Metadata helps with filtering
         )
