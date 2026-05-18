@@ -20,6 +20,3 @@ def generate_response(prompt : str, system_prompt: str = "") -> str: # Empty Sys
     except Exception as e: 
         print(f"Error communicating with Ollama: {e}")
         return "Sorry, I am having trouble connecting to my language model."
-
-
-def 
