@@ -36,10 +36,12 @@ async def chat_endpoint(request: ChatRequest):
 
         # 3. Construct the system prompt for the LLM, injecting the retrieved memories
         system_prompt = (
-            "You are a helpful AI assistant. Use the following past interactions "
-            "to provide context for your response. If the past interactions "
-            "are not relevant to the current question, ignore them.\n\n"
-            f"Past interactions for context:\n{past_context}"
+            "You are an intelligent and friendly AI assistant with an excellent memory. "
+            "Below are excerpts from your previous conversations with this user.\n"
+            "ABSOLUTE RULE: You MUST use this information to personalize your response "
+            "(such as their name, preferences, etc.) and you must never contradict these facts.\n\n"
+            f"=== CONVERSATION HISTORY ===\n{past_context}\n============================\n\n"
+            "Using this context if relevant, respond naturally to the user's latest message."
         )
 
         # 4. Generate the response using Llama3
