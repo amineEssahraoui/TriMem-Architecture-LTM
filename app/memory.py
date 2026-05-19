@@ -33,7 +33,7 @@ class EpisodicMemory:
         """
         Retrieves context using HYBRID SEARCH (Semantic Vectors + BM25 Keywords).
         """
-        # EMANTIC SEARCH (ChromaDB Vectors)
+        # SEMANTIC SEARCH (ChromaDB Vectors)
         semantic_results = self.collection.query(
             query_embeddings=[query_embedding],
             n_results=n_results,
@@ -44,7 +44,7 @@ class EpisodicMemory:
         if semantic_results['documents'] and semantic_results['documents'][0]:
             semantic_docs = semantic_results['documents'][0]
 
-        # 2. KEYWORD SEARCH (BM25)
+        # KEYWORD SEARCH (BM25)
         # Fetch all user documents to run keyword search
         all_user_data = self.collection.get(where={"user_id": user_id})
         bm25_docs = []
@@ -61,7 +61,7 @@ class EpisodicMemory:
             tokenized_query = query_text.lower().split(" ")
             bm25_docs = bm25.get_top_n(tokenized_query, all_docs, n=n_results)
 
-        # 3. COMBINE & DEDUPLICATE RESULTS (Hybrid Merge)
+        # COMBINE & DEDUPLICATE RESULTS (Hybrid Merge)
         # We use a set to ensure we don't send the same memory twice to the LLM
         combined_docs = list(set(semantic_docs + bm25_docs))
         
