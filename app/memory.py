@@ -1,6 +1,7 @@
 import chromadb 
 import time
 from app.config import settings
+from rank_bm25 import BM25Okapi
 
 class EpisodicMemory: 
     def __init__(self):
@@ -28,23 +29,48 @@ class EpisodicMemory:
             metadatas = [{"user_id": user_id, "timestamp": timestamp}] # Metadata helps with filtering
         )
 
-    def retrieve_recent_context(self, user_id: str, query_embedding: list[float], n_results: int = settings.MEMORY_N_RESULTS) -> str:
+    def retrieve_recent_context(self, user_id: str, query_embedding: list[float], query_text: str, n_results: int = settings.MEMORY_N_RESULTS) -> str:
         """
-        Retrieves the most semantically relevant past interactions for a specific user.
+        Retrieves context using HYBRID SEARCH (Semantic Vectors + BM25 Keywords).
         """
-        results = self.collection.query(
+        # EMANTIC SEARCH (ChromaDB Vectors)
+        semantic_results = self.collection.query(
             query_embeddings=[query_embedding],
             n_results=n_results,
-            where={"user_id": user_id} # Crucial: Only search memories belonging to this user
+            where={"user_id": user_id}
         )
         
-        # If no memories are found, return an empty string
-        if not results['documents'] or not results['documents'][0]:
-            return ""
+        semantic_docs = []
+        if semantic_results['documents'] and semantic_results['documents'][0]:
+            semantic_docs = semantic_results['documents'][0]
+
+        # 2. KEYWORD SEARCH (BM25)
+        # Fetch all user documents to run keyword search
+        all_user_data = self.collection.get(where={"user_id": user_id})
+        bm25_docs = []
+        
+        if all_user_data['documents']:
+            all_docs = all_user_data['documents']
+            # Tokenize the documents (split into words and convert to lowercase)
+            tokenized_corpus = [doc.lower().split(" ") for doc in all_docs]
             
-        # Combine the retrieved memory texts into a single string
-        context = "\n\n".join(results['documents'][0])
-        return context
+            # Initialize BM25 with the user's history
+            bm25 = BM25Okapi(tokenized_corpus)
+            
+            # Tokenize the query and get top N matches
+            tokenized_query = query_text.lower().split(" ")
+            bm25_docs = bm25.get_top_n(tokenized_query, all_docs, n=n_results)
+
+        # 3. COMBINE & DEDUPLICATE RESULTS (Hybrid Merge)
+        # We use a set to ensure we don't send the same memory twice to the LLM
+        combined_docs = list(set(semantic_docs + bm25_docs))
+        
+        # If nothing found at all
+        if not combined_docs:
+            return ""
+
+        # Return the final combined context
+        return "\n\n".join(combined_docs)
 
 # Create a global instance to be used across the application
 memory_db = EpisodicMemory()

@@ -31,7 +31,8 @@ async def chat_endpoint(request: ChatRequest):
         # 2. Retrieve relevant past context from episodic memory
         past_context = memory_db.retrieve_recent_context(
             user_id=request.user_id, 
-            query_embedding=query_embedding
+            query_embedding=query_embedding,
+            query_text=request.message
         )
 
         # 3. Construct the system prompt for the LLM, injecting the retrieved memories
