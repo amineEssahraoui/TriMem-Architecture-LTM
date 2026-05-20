@@ -17,5 +17,8 @@ class Config:
     # Number of recent context messages to retrieve (converted to integer)
     MEMORY_N_RESULTS = int(os.getenv("MEMORY_N_RESULTS", 3))
 
+    # Simple LLM used to score episodic memories
+    SCORING_MODEL = os.getenv("SCORING_MODEL", "llama3.2:latest")
+
 # Instantiate the configuration for easy import
 settings = Config()
