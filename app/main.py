@@ -1,55 +1,71 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-from app.llm import generate_response
+from app.llm import generate_response, get_importance_score
 from app.embedding import get_embedding
 from app.memory import memory_db
 
-# Initialize the FastAPI application
 app = FastAPI(title="TriMem Agent API - Phase 1")
 
-# Define the expected data structure for an incoming chat request
 class ChatRequest(BaseModel):
     user_id: str
     message: str
 
-# Define the data structure for the API's response
 class ChatResponse(BaseModel):
     response: str
 
-@app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(request: ChatRequest):
-    """
-    Handles a user's chat message, retrieves context, and generates a response.
-    """
-    try:
-        # 1. Generate an embedding for the incoming user message
-        query_embedding = get_embedding(request.message)
-        
-        if not query_embedding:
-            raise HTTPException(status_code=500, detail="Failed to generate embedding from Ollama.")
+def save_memory_background(user_id: str, user_message: str, ai_response: str, embedding: list[float]):
+    """Calculates importance score and saves memory without blocking the API response."""
+    
+    score = get_importance_score(user_message)
+    print(f"[Background Task] Importance Score for '{user_id}': {score}/10")
+    
+    memory_db.add_interaction(
+        user_id=user_id,
+        user_message=user_message,
+        ai_response=ai_response,
+        embedding=embedding,
+        importance_score=score
+    )
 
-        # 2. Retrieve relevant past context from episodic memory
+@app.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks):
+    try:
+        query_embedding = get_embedding(request.message)
+        if not query_embedding:
+            raise HTTPException(status_code=500, detail="Failed to generate embedding.")
+
         past_context = memory_db.retrieve_recent_context(
             user_id=request.user_id, 
             query_embedding=query_embedding,
             query_text=request.message
         )
 
-        # 3. Construct the system prompt for the LLM, injecting the retrieved memories
-        system_prompt = (
-            "You are an intelligent and friendly AI assistant with an excellent memory. "
-            "Below are excerpts from your previous conversations with this user.\n"
-            "ABSOLUTE RULE: You MUST use this information to personalize your response "
-            "(such as their name, preferences, etc.) and you must never contradict these facts.\n\n"
-            f"=== CONVERSATION HISTORY ===\n{past_context}\n============================\n\n"
-            "Using this context if relevant, respond naturally to the user's latest message."
-        )
+        # Dynamic System Prompt
+        if past_context.strip():
+            # If the agent found memories in the database (Returning User)
+            system_prompt = (
+                "You are an intelligent, friendly, and highly efficient AI assistant. "
+                "Below are facts from your previous conversations with this user.\n\n"
+                "RULES:\n"
+                "1. CONCISENESS: Be direct and to the point. Do not use excessive filler words or unnecessary pleasantries unless strictly needed.\n"
+                "2. PERSONALIZATION: You MUST use the past memory to personalize your response if relevant.\n"
+                "3. NATURAL TONE: Do not explicitly say 'I remember from our previous conversation' or 'Based on my memory'. Act naturally.\n\n"
+                f"=== PAST MEMORY ===\n{past_context}\n===================\n\n"
+                "Respond naturally and concisely to the user's latest message."
+            )
+        else:
+            # If this is the very first time they speak (Empty memory)
+            system_prompt = (
+                "You are an intelligent, friendly, and highly efficient AI assistant. "
+                "This is your very first interaction with this user. "
+                "Your objective: Give a quick, warm welcome, state clearly that you are ready to help, "
+                "and keep your response brief and to the point. Do not be overly verbose."
+            )
 
-        # 4. Generate the response using Llama3
         ai_response = generate_response(prompt=request.message, system_prompt=system_prompt)
 
-        # 5. Store this new interaction in the episodic memory for future use
-        memory_db.add_interaction(
+        background_tasks.add_task(
+            save_memory_background,
             user_id=request.user_id,
             user_message=request.message,
             ai_response=ai_response,
