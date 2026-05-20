@@ -24,23 +24,30 @@ def generate_response(prompt : str, system_prompt: str = "") -> str: # Empty Sys
     
 def get_importance_score(message: str) -> int:
     """
-    Asks a lightweight LLM (e.g., TinyLlama) to evaluate the importance of the message.
+    Asks a lightweight LLM to evaluate the importance of the message.
     """
-    system_prompt = "You are a strict data classification system. You output ONLY a single integer."
-    
-    prompt = (
-        "Rate the importance of the following user message for a long-term AI memory system on a scale of 1 to 10.\n"
-        "- 1 to 3: Meaningless chatter, greetings, or short acknowledgments (e.g., 'hello', 'okay', 'thanks').\n"
-        "- 4 to 7: General questions or context (e.g., 'how does python work?').\n"
-        "- 8 to 10: Highly important personal facts, names, preferences, or secrets (e.g., 'My name is Alice', 'I am allergic to peanuts').\n\n"
-        "ABSOLUTE RULE: Output ONLY a single integer between 1 and 10. Do not write any text or explanation.\n\n"
-        f"User Message: '{message}'"
+    system_prompt = (
+        "You are an expert Cognitive Memory Classifier. Your task is to evaluate the importance of "
+        "retaining a user message in a long-term AI memory database. "
+        "Your ONLY output must be a single integer. No text, no explanation."
     )
     
+    prompt = (
+        "Evaluate the long-term retention importance of the following user message on a scale of 1 to 10.\n\n"
+        "SCORING RUBRIC:\n"
+        "- [1 to 3] NOISE: Greetings, small talk, pleasantries, or temporary states (e.g., 'Hello!', 'I am tired', 'Thanks').\n"
+        "- [4 to 6] GENERAL: Factual questions, tasks, or situational context (e.g., 'How does Python work?', 'Fix this code').\n"
+        "- [7 to 8] PROFILING: Long-term traits, professions, hobbies, or general preferences (e.g., 'I am a software engineer', 'I like jazz').\n"
+        "- [9 to 10] CRITICAL: Core identity (the user's NAME), severe health facts (allergies), secrets, or explicit user rules (e.g., 'My name is David', 'My PIN is 1234').\n\n"
+        "CRITICAL RULE: If a message contains a mix of information (e.g., a greeting AND a name, or a profession AND a name), "
+        "you MUST base your final score on the HIGHEST value element present.\n\n"
+        f"User Message: '{message}'\n\n"
+        "OUTPUT FORMAT: Return ONLY the integer."
+    )
     try:
         # We explicitly use the tiny model here for speed!
         response = ollama.chat(
-            model="tinyllama", 
+            model=settings.SCORING_MODEL, 
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
