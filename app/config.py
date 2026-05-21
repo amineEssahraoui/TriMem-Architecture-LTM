@@ -6,19 +6,19 @@ load_dotenv()
 
 class Config:
     # Language model for text generation
-    LLM_MODEL = os.getenv("LLM_MODEL", "llama3:8b")
+    LLM_MODEL = os.getenv("LLM_MODEL")
     
     # Model for creating text embeddings
-    EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text:latest")
+    EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL")
     
     # Directory where ChromaDB will persist its data
-    CHROMA_PATH = os.getenv("CHROMA_PATH", "./data/chroma_db")
+    CHROMA_PATH = os.getenv("CHROMA_PATH")
 
     # Number of recent context messages to retrieve (converted to integer)
-    MEMORY_N_RESULTS = int(os.getenv("MEMORY_N_RESULTS", 3))
+    MEMORY_N_RESULTS = int(os.getenv("MEMORY_N_RESULTS"))
 
     # Simple LLM used to score episodic memories
-    SCORING_MODEL = os.getenv("SCORING_MODEL", "llama3.2:latest")
+    SCORING_MODEL = os.getenv("SCORING_MODEL")
 
 # Instantiate the configuration for easy import
 settings = Config()

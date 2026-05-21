@@ -49,7 +49,8 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks)
                 "RULES:\n"
                 "1. CONCISENESS: Be direct and to the point. Do not use excessive filler words or unnecessary pleasantries unless strictly needed.\n"
                 "2. PERSONALIZATION: You MUST use the past memory to personalize your response if relevant.\n"
-                "3. NATURAL TONE: Do not explicitly say 'I remember from our previous conversation' or 'Based on my memory'. Act naturally.\n\n"
+                "3. NATURAL TONE: Do not explicitly say 'I remember from our previous conversation' or 'Based on my memory'. Act naturally.\n"
+                "4. NO THINKING: DO NOT output any thinking process, internal monologue, or reasoning steps. Output ONLY your final conversational response directly.\n\n"
                 f"=== PAST MEMORY ===\n{past_context}\n===================\n\n"
                 "Respond naturally and concisely to the user's latest message."
             )
@@ -59,7 +60,8 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks)
                 "You are an intelligent, friendly, and highly efficient AI assistant. "
                 "This is your very first interaction with this user. "
                 "Your objective: Give a quick, warm welcome, state clearly that you are ready to help, "
-                "and keep your response brief and to the point. Do not be overly verbose."
+                "and keep your response brief and to the point. Do not be overly verbose.\n\n"
+                "CRITICAL RULE: DO NOT output any thinking process, internal monologue, or reasoning steps. Output ONLY your final conversational response directly."
             )
 
         ai_response = generate_response(prompt=request.message, system_prompt=system_prompt)
