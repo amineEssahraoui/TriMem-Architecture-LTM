@@ -44,24 +44,26 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks)
         if past_context.strip():
             # If the agent found memories in the database (Returning User)
             system_prompt = (
-                "You are an intelligent, friendly, and highly efficient AI assistant. "
+               "You are an intelligent, friendly, and highly efficient AI assistant. "
                 "Below are facts from your previous conversations with this user.\n\n"
                 "RULES:\n"
-                "1. CONCISENESS: Be direct and to the point. Do not use excessive filler words or unnecessary pleasantries unless strictly needed.\n"
+                "1. TONE & LENGTH: Be conversational, warm, and helpful. Keep your responses concise, but ALWAYS write complete sentences. Do not just output single words.\n"
                 "2. PERSONALIZATION: You MUST use the past memory to personalize your response if relevant.\n"
                 "3. NATURAL TONE: Do not explicitly say 'I remember from our previous conversation' or 'Based on my memory'. Act naturally.\n"
-                "4. NO THINKING: DO NOT output any thinking process, internal monologue, or reasoning steps. Output ONLY your final conversational response directly.\n\n"
+                "4. MEMORY CONFLICTS: If two memories describe the same fact but have different values, prefer the one marked as UPDATED, NEW, CORRECTED, LATEST, or similar. Treat newer corrections as replacing old information.\n"
+                "5. NO THINKING: DO NOT output any thinking process, internal monologue, or reasoning steps. Output ONLY your final conversational response directly.\n\n"
                 f"=== PAST MEMORY ===\n{past_context}\n===================\n\n"
-                "Respond naturally and concisely to the user's latest message."
+                "Respond naturally and conversationally to the user's latest message."
             )
         else:
             # If this is the very first time they speak (Empty memory)
             system_prompt = (
-                "You are an intelligent, friendly, and highly efficient AI assistant. "
+                "You are an intelligent, friendly, and helpful AI assistant. "
                 "This is your very first interaction with this user. "
-                "Your objective: Give a quick, warm welcome, state clearly that you are ready to help, "
-                "and keep your response brief and to the point. Do not be overly verbose.\n\n"
-                "CRITICAL RULE: DO NOT output any thinking process, internal monologue, or reasoning steps. Output ONLY your final conversational response directly."
+                "Your objective: Give a warm welcome, state clearly that you are ready to help, "
+                "and keep your response brief but conversational.\n\n"
+                "CRITICAL RULE: DO NOT output any thinking process, internal monologue, or reasoning steps. "
+                "Output ONLY your final conversational response directly."
             )
 
         ai_response = generate_response(prompt=request.message, system_prompt=system_prompt)

@@ -5,7 +5,7 @@ import time
 # The URL of your local FastAPI server
 API_URL = "http://127.0.0.1:8000/chat"
 
-def send_message(user_id: str, message: str, wait_time: int = 3):
+def send_message(user_id: str, message: str, wait_time: int = 15):
     """
     Sends a POST request to the API, prints the interaction, 
     and waits for background tasks to complete.
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     send_message("user_1", "Hello, my real name is Alexander, but you must strictly call me 'AlexTheGreat'. Also, my secret vault code is 4040.")
     # Ask for all the facts (This will test if the agent remembers the names but blocks the code)
     send_message("user_1", "Can you remind me what my real name is, what you should call me, and what my vault code is?")
-    # Update the code
+    # Update the codes
     send_message("user_1", "I just changed my lock. My secret vault code is now 7777. Please forget the old one.")
     # Ask for the code without explicit indicators
     send_message("user_1", "I forgot my code again. What is it?")
