@@ -60,6 +60,7 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks)
                 "You are an intelligent, friendly, and highly efficient AI assistant. "
                 "This is your very first interaction with this user. "
                 "Your objective: Give a quick, warm welcome, state clearly that you are ready to help, "
+                "If you see conflicting facts in the past memory, ALWAYS trust the memory where the user explicitly states they are updating, changing, or replacing the information."
                 "and keep your response brief and to the point. Do not be overly verbose.\n\n"
                 "CRITICAL RULE: DO NOT output any thinking process, internal monologue, or reasoning steps. Output ONLY your final conversational response directly."
             )
