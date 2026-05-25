@@ -52,60 +52,59 @@ class EpisodicMemory:
 
     def retrieve_recent_context(self, user_id: str, query_embedding: list[float], query_text: str, n_results: int = settings.MEMORY_N_RESULTS) -> str:
         """Retrieves and ranks context using Hybrid Search and Time-Weighted Scoring."""
-        
+
+        # Count existing docs for this user to avoid ChromaDB crash
+        existing = self.collection.get(where={"user_id": user_id})
+        actual_count = len(existing['ids'])
+
+        if actual_count == 0:
+            return ""
+
+        safe_n = min(n_results, actual_count)
+
         # Semantic Search
         semantic_results = self.collection.query(
             query_embeddings=[query_embedding],
-            n_results=n_results,
+            n_results=safe_n,
             where={"user_id": user_id},
             include=["documents", "metadatas"]
         )
-        
+
         candidate_docs = []
         candidate_metadatas = []
-        
+
         if semantic_results['documents'] and semantic_results['documents'][0]:
             candidate_docs.extend(semantic_results['documents'][0])
             candidate_metadatas.extend(semantic_results['metadatas'][0])
 
         # Keyword Search (BM25)
-        all_user_data = self.collection.get(
-            where={"user_id": user_id},
-            include=["documents", "metadatas"]
-        )
-        
-        if all_user_data['documents']:
-            all_docs = all_user_data['documents']
-            all_metas = all_user_data['metadatas']
-            
+        all_docs = existing['documents']
+        all_metas = existing['metadatas']
+
+        if all_docs:
             tokenized_corpus = [doc.lower().split() for doc in all_docs]
             bm25 = BM25Okapi(tokenized_corpus)
             tokenized_query = query_text.lower().split()
-            
             doc_scores = bm25.get_scores(tokenized_query)
-            
-            # Get top N indices from BM25
-            top_n_indices = sorted(range(len(doc_scores)), key=lambda i: doc_scores[i], reverse=True)[:n_results]
-            
+
+            top_n_indices = sorted(range(len(doc_scores)), key=lambda i: doc_scores[i], reverse=True)[:safe_n]
+
             for idx in top_n_indices:
-                if doc_scores[idx] > 0: # Only add if it actually matches keywords
+                if doc_scores[idx] > 0:
                     candidate_docs.append(all_docs[idx])
                     candidate_metadatas.append(all_metas[idx])
 
-        # Deduplicate and Apply Time/Importance Scoring
+        # Deduplicate and re-rank with Importance + Time Decay
         unique_memories = {}
         for doc, meta in zip(candidate_docs, candidate_metadatas):
             if doc not in unique_memories:
-                final_score = self._calculate_final_score(meta)
-                unique_memories[doc] = final_score
+                unique_memories[doc] = self._calculate_final_score(meta)
 
-        # Sort memories by the highest final score
         ranked_docs = sorted(unique_memories.keys(), key=lambda d: unique_memories[d], reverse=True)
 
         if not ranked_docs:
             return ""
 
-        # Return only the top n_results after re-ranking
         return "\n\n".join(ranked_docs[:n_results])
 
 memory_db = EpisodicMemory()

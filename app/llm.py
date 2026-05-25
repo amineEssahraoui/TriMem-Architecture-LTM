@@ -27,23 +27,49 @@ def get_importance_score(message: str) -> int:
     Asks a lightweight LLM to evaluate the importance of the message.
     """
     system_prompt = (
-        "You are an expert Cognitive Memory Classifier. Your task is to evaluate the importance of "
-        "retaining a user message in a long-term AI memory database. "
-        "Your ONLY output must be a single integer. No text, no explanation."
+        "You are an expert Cognitive Memory Classifier. "
+        "Your task is to evaluate how important a user message is for long-term retention in an AI memory database. "
+        "The more a message contains information that is important, persistent, or defining for the user, "
+        "the higher the score must be. "
+        "Your ONLY output must be a single integer from 1 to 10. "
+        "No text, no explanation."
     )
-    
+
     prompt = (
-        "Evaluate the long-term retention importance of the following user message on a scale of 1 to 10.\n\n"
+        "Evaluate the long-term memory importance of the following user message on a scale of 1 to 10.\n\n"
+
+        "CORE PRINCIPLE:\n"
+        "- The more the message contains information that is important to the user's identity, preferences, rules, "
+        "long-term context, or future personalization value, the HIGHER the score.\n"
+        "- Temporary, generic, task-specific, or low-signal information should receive LOWER scores.\n\n"
+
         "SCORING RUBRIC:\n"
-        "- [1 to 3] NOISE: Greetings, small talk, pleasantries, or temporary states (e.g., 'Hello!', 'I am tired', 'Thanks').\n"
-        "- [4 to 6] GENERAL: Factual questions, tasks, or situational context (e.g., 'How does Python work?', 'Fix this code').\n"
-        "- [7 to 8] PROFILING: Long-term traits, professions, hobbies, or general preferences (e.g., 'I am a software engineer', 'I like jazz').\n"
-        "- [9 to 10] CRITICAL: Core identity (the user's NAME), severe health facts (allergies), secrets, or explicit user rules (e.g., 'My name is David', 'My PIN is 1234').\n\n"
-        "CRITICAL RULE: If a message contains a mix of information (e.g., a greeting AND a name, or a profession AND a name), "
-        "you MUST base your final score on the HIGHEST value element present.\n\n"
+        "- [1–3] NOISE: Greetings, small talk, emotions, temporary states, acknowledgments, or ephemeral context "
+        "(e.g., 'Hello!', 'I am tired', 'Thanks').\n"
+
+        "- [4–6] GENERAL: Questions, requests, short-term tasks, situational context, or factual discussions with "
+        "limited long-term personalization value "
+        "(e.g., 'How does Python work?', 'Fix this code', 'I am working on a report').\n"
+
+        "- [7–8] PROFILING: Stable user characteristics, interests, professions, habits, skills, goals, "
+        "long-term projects, or recurring preferences "
+        "(e.g., 'I am a software engineer', 'I like jazz', 'I use Linux', 'I am learning machine learning').\n"
+
+        "- [9–10] CRITICAL: Core identity, highly important personal facts, explicit persistent instructions, "
+        "strong personalization rules, major constraints, or sensitive enduring information "
+        "(e.g., 'My name is David', 'Always answer in French', 'I am allergic to peanuts').\n\n"
+
+        "CRITICAL RULES:\n"
+        "- If a message contains multiple types of information, ALWAYS score according to the HIGHEST-importance element.\n"
+        "- Prefer scoring based on LONG-TERM usefulness and personalization value, not immediate task relevance.\n"
+        "- Stable facts > temporary facts.\n"
+        "- User identity, preferences, rules, and enduring context should strongly increase the score.\n\n"
+
         f"User Message: '{message}'\n\n"
+
         "OUTPUT FORMAT: Return ONLY the integer."
     )
+
     try:
         # We explicitly use the tiny model here for speed!
         response = ollama.chat(
