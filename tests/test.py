@@ -31,22 +31,13 @@ def send_message(user_id: str, message: str, wait_time: int = 3):
 if __name__ == "__main__":
     print("=== STARTING GLOBAL MEMORY INTEGRATION TEST ===")
 
-    # TEST 1: CORE IDENTITY & NICKNAME (USER 1)
-    send_message("user_1", "Hello! My real name is Alexander, but please only call me 'AlexTheGreat'. Also, my secret vault code is 4040.")
-    
-    # TEST 2: PREFERENCES & ALLERGIES (USER 2)
-    send_message("user_2", "Hi, I am Sarah. I love Italian food, but I am extremely allergic to garlic.")
-
-    # TEST 3: RECALL & NICKNAME ENFORCEMENT (USER 1)
-    send_message("user_1", "I forgot my vault code, can you remind me? And what should you call me?")
-
-    # TEST 4: MEMORY ISOLATION / CROSS-CONTAMINATION (USER 2)
-    send_message("user_2", "I am hungry. Can you suggest a dinner idea based on what you know about me? Also, do you know any vault codes?")
-    
-    # TEST 5: TRIVIAL CHATTER (NOISE FILTERING) (USER 1)
-    send_message("user_1", "Wow, it is really raining hard outside today.")
-    
-    # TEST 6: FINAL CHECK (USER 1)
-    send_message("user_1", "Just checking, do you remember my full real name and my nickname?")
+    # Definition of the user with real name, nickname, and code
+    send_message("user_1", "Hello, my real name is Alexander, but you must strictly call me 'AlexTheGreat'. Also, my secret vault code is 4040.")
+    # Ask for all the facts (This will test if the agent remembers the names but blocks the code)
+    send_message("user_1", "Can you remind me what my real name is, what you should call me, and what my vault code is?")
+    # Update the code
+    send_message("user_1", "I just changed my lock. My secret vault code is now 7777. Please forget the old one.")
+    # Ask for the code without explicit indicators
+    send_message("user_1", "I forgot my code again. What is it?")
 
     print("\n=== TEST COMPLETED ===")
