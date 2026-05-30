@@ -5,4 +5,4 @@ chromadb
 numpy
 pydantic
 python-dotenv
-rank_bm25
+sqlite3

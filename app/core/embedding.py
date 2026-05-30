@@ -1,5 +1,5 @@
 import ollama
-from app.config import settings
+from app.core.config import settings
 
 def get_embedding(text : str) -> list[float]: # Take a text and return emmbedding vector
     """

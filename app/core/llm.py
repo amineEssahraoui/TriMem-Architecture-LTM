@@ -1,6 +1,6 @@
 import ollama
 import re
-from app.config import settings
+from app.core.config import settings
 
 def generate_response(prompt : str, system_prompt: str = "") -> str: # Empty System_prompt by default !
     """
