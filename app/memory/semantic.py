@@ -14,29 +14,37 @@ class SemanticMemory:
         self.groq_client = Groq(api_key=settings.GROQ_API_KEY)
         self._init_sqlite()
 
-        # Define the Graph Ontology
-        # THE FULL GRAPH ONTOLOGY
-        self.ALL_RELATIONS = [
-            # 1-TO-1 RELATIONS (Overwrites old data)
-            "HAS_NAME",        # 1-to-1
-            "HAS_CODE",        # 1-to-1
-            "LIVES_IN",        # 1-to-1
-            "STUDIES_AT",      # 1-to-1
-            "HAS_ROLE",        # 1-to-1
-            "USES_OS",         # 1-to-1
+        # THE FULL GRAPH ONTOLOGY WITH DEFINITIONS
+        self.RELATIONS_MAP = {
+            # Identity & Demographics
+            "HAS_NAME": "The user's actual name.",
+            "HAS_CODE": "Strictly for numerical PINs, passwords, server access codes, or security keys. Extract the specific number or string provided, especially when the user is updating or replacing an old, compromised code.",
+            "LIVES_IN": "Physical geography like cities or countries.",
+            "SPEAKS_LANGUAGE": "Human languages the user speaks.",
             
-            # 1-TO-N RELATIONS (Appends new data)
-            "SPEAKS_LANGUAGE", # 1-to-N
-            "WORKS_AT",        # 1-to-N
-            "IS_A",            # 1-to-N
-            "USES_TOOL",       # 1-to-N
-            "HAS_SKILL",       # 1-to-N
-            "WANTS_TO_LEARN",  # 1-to-N
-            "WORKS_ON",        # 1-to-N
-            "HAS_GOAL",        # 1-to-N
-            "INTERESTED_IN",   # 1-to-N
-            "HAS_HOBBIES"      # 1-to-N 
-        ]
+            # Academic & Professional
+            "STUDIES_AT": "The university or school the user attends.",
+            "HAS_ROLE": "Professional job titles or specific project roles (e.g., Intern, Technical Lead).",
+            "WORKS_AT": "Strictly for formal organizations, companies, research labs, or startups that employ or host the user. Do NOT use this for events, temporary competitions, or software projects.",
+            
+            # Technical & Capabilities
+            "IS_A": "General descriptions of the user (e.g., engineering student, developer).",
+            "USES_TOOL": "Software, frameworks, or programming languages (e.g., PyTorch, Python, C++).",
+            "USES_OS": "Computer operating systems (e.g., Linux, Windows).",
+            "HAS_SKILL": "Technical concepts or capabilities (e.g., MARL, backend engineering).",
+            "WANTS_TO_LEARN": "Things the user explicitly states they want to study, improve, or achieve (e.g., English, IELTS).",
+            
+            # Projects & Ambitions
+            "WORKS_ON": "For specific software projects, AI systems, digital architectures, or distinct events the user is actively building, developing, or organizing (e.g., a custom engine, an app).",
+            "HAS_GOAL": "Long-term ambitions (e.g., getting a PhD, finding an internship).",
+            
+            # Personal Preferences
+            "INTERESTED_IN": "Academic subjects, scientific fields, or deep research topics.",
+            "HAS_HOBBIES": "Casual hobbies, sports, and games (e.g., chess, football)."
+        }
+        
+        # Extract keys for the LLM prompt and database logic
+        self.ALL_RELATIONS = list(self.RELATIONS_MAP.keys())
         
         # DYNAMIC OVERWRITE BOUNDS
         self.ONE_TO_ONE_RELATIONS = [
@@ -85,9 +93,10 @@ class SemanticMemory:
             "You MUST output valid JSON. You MUST output a single JSON object containing a 'facts' key.\n\n"
             "STRICT RULES:\n"
             "1. The 'subject' must always be exactly 'User'.\n"
-            f"2. You can ONLY use the following exact relations: {json.dumps(self.ALL_RELATIONS)}\n"
-            "3. If no facts fit these exact relations, you MUST output {\"facts\": []}.\n"
-            "4. RESTRAINT: Do NOT force extractions from casual conversation. If the user is just chatting or making general statements, output {\"facts\": []}.\n\n"
+            f"2. You can ONLY use the relations defined in this exact schema map: {json.dumps(self.RELATIONS_MAP)}\n"
+            "3. Read the definitions carefully to choose the most accurate relation.\n"
+            "4. If no facts fit these relations, you MUST output {\"facts\": []}.\n"
+            "5. RESTRAINT: Do NOT force extractions from casual conversation. If the user is just chatting or making general statements, output {\"facts\": []}.\n\n"
             "EXPECTED JSON FORMAT:\n"
             "{\n"
             '  "facts": [\n'
