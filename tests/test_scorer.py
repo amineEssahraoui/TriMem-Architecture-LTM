@@ -2,7 +2,7 @@ import time
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from app.llm import get_importance_score
+from app.core.llm import get_importance_score
 
 if __name__ == "__main__":
     print("=== STARTING SCORING MODEL TEST ===")
