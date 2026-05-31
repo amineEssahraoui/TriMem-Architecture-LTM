@@ -3,6 +3,7 @@ import os
 import json
 from groq import Groq
 from app.core.config import settings
+import numpy as np
 
 class SemanticMemory:
     def __init__(self):
@@ -160,6 +161,54 @@ class SemanticMemory:
 
         except Exception as e:
             print(f"[Semantic Error] Fact extraction pipeline failed: {e}")
+    
+    def get_relevant_facts(self, user_id: str, user_prompt: str, embedding_function, threshold: float = 0.6) -> str:
+        """
+        Retrieves semantic facts relevant to the current user prompt using vector similarity.
+        """
+        # Fetch ALL facts for this specific user
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT relation, object 
+            FROM semantic_triplets 
+            WHERE user_id = ?
+        ''', (user_id,))
+        
+        facts = cursor.fetchall()
+        
+        if not facts:
+            return ""
+
+        # Vectorize the user's prompt once
+        prompt_vector = embedding_function(user_prompt)
+        
+        relevant_facts = []
+
+        for relation, obj in facts:
+            # Combine relation with object for maximum semantic meaning
+            fact_string = f"{relation} {obj}"
+            # Vectorize the combined fact string
+            fact_vector = embedding_function(fact_string)
+            # Calculate Cosine Similarity (Math to see how close the vectors are)
+            similarity = np.dot(prompt_vector, fact_vector) / (np.linalg.norm(prompt_vector) * np.linalg.norm(fact_vector))
+            # If similarity > threshold, keep it!
+            if similarity >= threshold:
+                relevant_facts.append((similarity, relation, obj))
+
+        # Return all the triplets that passed the threshold
+        if not relevant_facts:
+            return "" # None passed the threshold
+
+        # Sort by highest similarity first (most relevant at the top)
+        relevant_facts.sort(key=lambda x: x[0], reverse=True)
+
+        # Format cleanly for the LLM prompt
+        formatted_output = ["--- User Semantic Context ---"]
+        for sim, rel, obj in relevant_facts:
+            formatted_output.append(f"- {rel}: {obj}")
+            print(f"[DEBUG] Retrieved: {rel} {obj} (Score: {sim:.2f})") # Uncomment to debug!
+            
+        return "\n".join(formatted_output)
 
 # Instantiate the singleton
 semantic_memory = SemanticMemory()
