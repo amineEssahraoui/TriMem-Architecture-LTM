@@ -20,5 +20,11 @@ class Config:
     # Simple LLM used to score episodic memories
     SCORING_MODEL = os.getenv("SCORING_MODEL")
 
+    # GROQ API 
+    GROQ_API_KEY = os.getenv("GROQ_API")
+
+    # Graphe database path
+    KNOWLEDGR_GRAPHE_PATH = os.getenv("KNOWLEDGR_GRAPHE_PATH")
+
 # Instantiate the configuration for easy import
 settings = Config()
