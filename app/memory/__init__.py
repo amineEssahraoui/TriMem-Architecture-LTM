@@ -1,6 +1,7 @@
 from app.memory.episodic import EpisodicMemory
+from app.memory.semantic import SemanticMemory 
 
-# Instantiate the singletons for the memory components
 episodic_memory = EpisodicMemory()
+semantic_memory = SemanticMemory()           
 
-__all__ = ["episodic_memory"]
+__all__ = ["episodic_memory", "semantic_memory"]
