@@ -19,6 +19,7 @@ class SemanticMemory:
         self.RELATIONS_MAP = {
             # Identity & Demographics
             "HAS_NAME": "The user's actual name.",
+            "HAS_NICKNAME": "The short name, handle, or alias the user prefers to be called by.",
             "HAS_CODE": "Strictly for numerical PINs, passwords, server access codes, or security keys. Extract the specific number or string provided, especially when the user is updating or replacing an old, compromised code.",
             "LIVES_IN": "Physical geography like cities or countries.",
             "SPEAKS_LANGUAGE": "Human languages the user speaks.",
@@ -49,7 +50,7 @@ class SemanticMemory:
         
         # DYNAMIC OVERWRITE BOUNDS
         self.ONE_TO_ONE_RELATIONS = [
-            "HAS_NAME", "HAS_CODE", "LIVES_IN", "STUDIES_AT", "HAS_ROLE", "USES_OS"
+            "HAS_NAME", "HAS_CODE", "LIVES_IN", "STUDIES_AT", "HAS_ROLE", "USES_OS", "HAS_NICKNAME"
         ]
 
     def _init_sqlite(self):
@@ -97,7 +98,8 @@ class SemanticMemory:
             f"2. You can ONLY use the relations defined in this exact schema map: {json.dumps(self.RELATIONS_MAP)}\n"
             "3. Read the definitions carefully to choose the most accurate relation.\n"
             "4. If no facts fit these relations, you MUST output {\"facts\": []}.\n"
-            "5. RESTRAINT: Do NOT force extractions from casual conversation. If the user is just chatting or making general statements, output {\"facts\": []}.\n\n"
+            "5. RESTRAINT: Do NOT force extractions from casual conversation. If the user is just chatting, output {\"facts\": []}.\n"
+            "6. IGNORE QUESTIONS: If the user is asking a question to retrieve information (e.g., 'What is my name?', 'Remind me my code'), DO NOT extract anything. Output {\"facts\": []}.\n\n"
             "EXPECTED JSON FORMAT:\n"
             "{\n"
             '  "facts": [\n'
@@ -162,7 +164,7 @@ class SemanticMemory:
         except Exception as e:
             print(f"[Semantic Error] Fact extraction pipeline failed: {e}")
     
-    def get_relevant_facts(self, user_id: str, user_prompt: str, embedding_function, threshold: float = 0.6) -> str:
+    def get_relevant_facts(self, user_id: str, query_text: str, embedding_function, threshold: float = 0.6) -> str:
         """
         Retrieves semantic facts relevant to the current user prompt using vector similarity.
         """
@@ -180,13 +182,15 @@ class SemanticMemory:
             return ""
 
         # Vectorize the user's prompt once
-        prompt_vector = embedding_function(user_prompt)
+        prompt_vector = embedding_function(query_text)
         
         relevant_facts = []
 
         for relation, obj in facts:
             # Combine relation with object for maximum semantic meaning
-            fact_string = f"{relation} {obj}"
+            # Replace underscores with spaces so the embedding model understands the words!
+            clean_relation = relation.replace("_", " ")
+            fact_string = f"{clean_relation} {obj}"
             # Vectorize the combined fact string
             fact_vector = embedding_function(fact_string)
             # Calculate Cosine Similarity (Math to see how close the vectors are)

@@ -1,9 +1,10 @@
+import time
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from app.core.llm import generate_response, get_importance_score
 from app.core.embedding import get_embedding
-from app.memory import episodic_memory
-
+from app.memory.episodic import episodic_memory
+from app.memory.semantic import semantic_memory
 router = APIRouter()
 
 class ChatRequest(BaseModel):
@@ -17,6 +18,9 @@ def save_memory_background(user_id: str, user_message: str, ai_response: str, em
     """Calculates importance score and saves memory without blocking the API response."""
     score = get_importance_score(user_message)
     print(f"[Background Task] Importance Score for '{user_id}': {score}/10")
+
+    timestamp = str(time.time())
+    memory_id = f"{user_id}_{timestamp}"
     
     episodic_memory.add_interaction(
         user_id=user_id,
@@ -26,6 +30,14 @@ def save_memory_background(user_id: str, user_message: str, ai_response: str, em
         importance_score=score
     )
 
+    if score >= 6:
+        print(f"[Background Task] Score {score} >= 6. Triggering Semantic Graph Pipeline...")
+        semantic_memory.extract_and_save_facts(
+            user_id=user_id,
+            text=user_message,
+            source_id=memory_id
+        )
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks):
     try:
@@ -33,29 +45,51 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks)
         if not query_embedding:
             raise HTTPException(status_code=500, detail="Failed to generate embedding.")
 
-        past_context = episodic_memory.retrieve_recent_context(
+        episodic_context = episodic_memory.retrieve_recent_context(
             user_id=request.user_id,
             query_embedding=query_embedding,
             query_text=request.message
         )
 
-        if past_context:
+        semantic_context = semantic_memory.get_relevant_facts(
+            user_id=request.user_id, 
+            query_text=request.message,
+            embedding_function=get_embedding,
+            threshold=0.5
+        )
+
+        if episodic_context or semantic_context:
             system_prompt = (
-                "You are an intelligent, friendly, and helpful AI assistant.\n"
-                "Use the following pieces of past memories to inform your response. "
-                "If the memories are irrelevant, ignore them. Maintain consistency with past provided information.\n"
-                "5. NO THINKING: DO NOT output any thinking process, internal monologue, or reasoning steps. Output ONLY your final conversational response directly.\n\n"
-                f"=== PAST MEMORY ===\n{past_context}\n===================\n\n"
-                "Respond naturally and conversationally to the user's latest message."
+                "You are an intelligent, natural, and helpful AI assistant.\n"
+                "Use the following past context and known facts to inform your response. "
+                "If they are irrelevant, ignore them.\n\n"
+
+                "RULES:\n"
+                "1. GROUND TRUTH OVERRIDE: The 'FACTS CONTEXT' (Semantic Memory) is the absolute, most up-to-date truth. If there is a conflict between past conversations and known facts (e.g., an updated password or changed name), ALWAYS trust the FACTS CONTEXT.\n"
+                "2. RELEVANCE: Only use memory when relevant to the user's latest message.\n"
+                "3. NO INVENTION: Do NOT fabricate memories, facts, events, or user information.\n"
+                "4. TONE: Be warm, professional, and natural. Do NOT use excessive emojis. Speak like a helpful human colleague.\n"
+                "5. NO THINKING: DO NOT output thinking process, internal monologue, chain-of-thought, or reasoning steps. Output ONLY your final conversational response.\n\n"
+
+                f"=== PAST CONTEXT (Past conversations with this user) ===\n"
+                f"{episodic_context}\n"
+                f"========================================================\n\n"
+
+                f"=== FACTS CONTEXT (Absolute Ground Truth about this user) ===\n"
+                f"{semantic_context}\n"
+                f"=============================================================\n\n"
+
+                "Respond naturally to the user's latest message."
             )
         else:
             system_prompt = (
-                "You are an intelligent, friendly, and helpful AI assistant. "
-                "This is your very first interaction with this user. "
-                "Your objective: Give a warm welcome, state clearly that you are ready to help, "
+                "You are an intelligent, natural, and helpful AI assistant.\n"
+                "This is your very first interaction with this user. There is no prior memory.\n\n"
+                "Your objective: Give a warm, natural welcome, state clearly that you are ready to help, "
                 "and keep your response brief but conversational.\n\n"
-                "CRITICAL RULE: DO NOT output any thinking process, internal monologue, or reasoning steps. "
-                "Output ONLY your final conversational response directly."
+                "RULES:\n"
+                "1. TONE: Be warm and professional. Do NOT use excessive emojis. Speak like a helpful human colleague, not an overly eager customer service bot.\n"
+                "2. NO THINKING: DO NOT output any thinking process, internal monologue, or reasoning steps. Output ONLY your final conversational response directly."
             )
 
         ai_response = generate_response(prompt=request.message, system_prompt=system_prompt)
