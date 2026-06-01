@@ -27,43 +27,35 @@ def get_importance_score(message: str) -> int:
     Asks a lightweight LLM to evaluate the importance of the message.
     """
     system_prompt = (
-        "You are an expert Cognitive Memory Classifier. "
-        "Your task is to evaluate how important a user message is for long-term retention in an AI memory database. "
-        "The more a message contains information that is important, persistent, or defining for the user, "
-        "the higher the score must be. "
-        "Your ONLY output must be a single integer from 1 to 10. "
-        "No text, no explanation."
+        "You are a strict Cognitive Memory Classifier for an AI memory database. "
+        "Your ONLY job is to detect if a user is DECLARING new, storable facts about themselves. "
+        "You must output a single integer from 1 to 10. No text, no markdown, no explanation."
     )
 
     prompt = (
-        "Evaluate the long-term memory importance of the following user message on a scale of 1 to 10.\n\n"
+        "Evaluate the Semantic Memory importance of the following user message on a scale of 1 to 10.\n\n"
 
         "CORE PRINCIPLE:\n"
-        "- The more the message contains information that is important to the user's identity, preferences, rules, "
-        "long-term context, or future personalization value, the HIGHER the score.\n"
-        "- Temporary, generic, task-specific, or low-signal information should receive LOWER scores.\n\n"
+        "- High scores (6-10) are STRICTLY reserved for DECLARATIVE statements where the user is sharing new facts, updating preferences, or establishing persistent identity traits.\n"
+        "- Low scores (1-5) are for questions, commands, tasks, and temporary context.\n\n"
 
         "SCORING RUBRIC:\n"
-        "- [1–3] NOISE: Greetings, small talk, emotions, temporary states, acknowledgments, or ephemeral context "
-        "(e.g., 'Hello!', 'I am tired', 'Thanks').\n"
+        "- [1–3] NOISE & INQUIRY: Questions, retrieval requests, commands, coding tasks, greetings, or casual chat. "
+        "(e.g., 'What is my code?', 'Write a Python script', 'Remind me my name', 'Hello!').\n"
 
-        "- [4–6] GENERAL: Questions, requests, short-term tasks, situational context, or factual discussions with "
-        "limited long-term personalization value "
-        "(e.g., 'How does Python work?', 'Fix this code', 'I am working on a report').\n"
+        "- [4–5] EPHEMERAL: Temporary states, situational context, or current short-term actions. "
+        "(e.g., 'I am fixing a bug today', 'I feel tired', 'I am reading a PDF right now').\n"
 
-        "- [7–8] PROFILING: Stable user characteristics, interests, professions, habits, skills, goals, "
-        "long-term projects, or recurring preferences "
-        "(e.g., 'I am a software engineer', 'I like jazz', 'I use Linux', 'I am learning machine learning').\n"
+        "- [6–8] PROFILING: Stable user characteristics, interests, professions, habits, skills, goals, or long-term projects. "
+        "(e.g., 'I am a software engineer', 'I like playing chess', 'I use Linux', 'My goal is IELTS 7.0').\n"
 
-        "- [9–10] CRITICAL: Core identity, highly important personal facts, explicit persistent instructions, "
-        "strong personalization rules, major constraints, or sensitive enduring information "
-        "(e.g., 'My name is David', 'Always answer in French', 'I am allergic to peanuts').\n\n"
+        "- [9–10] CRITICAL: Core identity, highly important personal facts, explicit persistent instructions, passwords, or hard rules. "
+        "(e.g., 'My real name is David', 'My new vault code is 7777', 'Always answer in French').\n\n"
 
         "CRITICAL RULES:\n"
-        "- If a message contains multiple types of information, ALWAYS score according to the HIGHEST-importance element.\n"
-        "- Prefer scoring based on LONG-TERM usefulness and personalization value, not immediate task relevance.\n"
-        "- Stable facts > temporary facts.\n"
-        "- User identity, preferences, rules, and enduring context should strongly increase the score.\n\n"
+        "1. THE QUESTION TRAP: If the user is ASKING about their own data (e.g., 'What is my password?', 'Who am I?'), the score MUST BE 1. Do not confuse the importance of the topic with the intent of the message.\n"
+        "2. THE TASK TRAP: Requests for the AI to do work (e.g., 'Fix this code', 'Write an email') MUST BE scored 1-3.\n"
+        "3. HIGHEST ELEMENT: If a message contains both a task and a new fact (e.g., 'I am a doctor, write an email for me'), score based on the new fact (e.g., 7).\n\n"
 
         f"User Message: '{message}'\n\n"
 

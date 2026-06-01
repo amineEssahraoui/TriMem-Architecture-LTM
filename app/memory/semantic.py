@@ -53,6 +53,28 @@ class SemanticMemory:
             "HAS_NAME", "HAS_CODE", "LIVES_IN", "STUDIES_AT", "HAS_ROLE", "USES_OS", "HAS_NICKNAME"
         ]
 
+        # --- NATURAL LANGUAGE EMBEDDING MAP ---
+        # We use this ONLY for vectorizing, so the math matches human questions!
+        self.NL_MAP = {
+            "HAS_NAME": "The user's real name is {}.",
+            "HAS_NICKNAME": "The user prefers to be called {}.",
+            "HAS_CODE": "The user's secret vault code, password, or PIN is {}.",
+            "LIVES_IN": "The user currently lives in {}.",
+            "SPEAKS_LANGUAGE": "The user speaks {}.",
+            "STUDIES_AT": "The user studies at {}.",
+            "HAS_ROLE": "The user's professional role or job title is {}.",
+            "WORKS_AT": "The user works at or organizes {}.",
+            "IS_A": "The user is a {}.",
+            "USES_TOOL": "The user uses the software or tool {}.",
+            "USES_OS": "The user uses the operating system {}.",
+            "HAS_SKILL": "The user has skills in {}.",
+            "WANTS_TO_LEARN": "The user wants to learn {}.",
+            "WORKS_ON": "The user is working on the project {}.",
+            "HAS_GOAL": "The user's goal is {}.",
+            "INTERESTED_IN": "The user is interested in {}.",
+            "HAS_HOBBIES": "The user's hobby is {}."
+        }
+
     def _init_sqlite(self):
         """Creates the isolated triplet table for graph storage."""
         cursor = self.conn.cursor()
@@ -168,7 +190,6 @@ class SemanticMemory:
         """
         Retrieves semantic facts relevant to the current user prompt using vector similarity.
         """
-        # Fetch ALL facts for this specific user
         cursor = self.conn.cursor()
         cursor.execute('''
             SELECT relation, object 
@@ -181,36 +202,39 @@ class SemanticMemory:
         if not facts:
             return ""
 
-        # Vectorize the user's prompt once
-        prompt_vector = embedding_function(query_text)
+        # NOMIC PREFIX FOR QUERIES: Forces the model into "search mode"
+        nomic_query = f"search_query: {query_text}"
+        prompt_vector = embedding_function(nomic_query)
         
         relevant_facts = []
 
         for relation, obj in facts:
-            # Combine relation with object for maximum semantic meaning
-            # Replace underscores with spaces so the embedding model understands the words!
-            clean_relation = relation.replace("_", " ")
-            fact_string = f"{clean_relation} {obj}"
-            # Vectorize the combined fact string
-            fact_vector = embedding_function(fact_string)
-            # Calculate Cosine Similarity (Math to see how close the vectors are)
+            # Translate the database tag into a full natural human sentence
+            human_sentence = self.NL_MAP.get(relation, f"{relation.replace('_', ' ')} is {{}}").format(obj)
+            
+            # NOMIC PREFIX FOR DOCUMENTS: Forces the model to treat this as a fact
+            nomic_document = f"search_document: {human_sentence}"
+            fact_vector = embedding_function(nomic_document)
+            
+            # Calculate Cosine Similarity purely between the two full sentences
             similarity = np.dot(prompt_vector, fact_vector) / (np.linalg.norm(prompt_vector) * np.linalg.norm(fact_vector))
-            # If similarity > threshold, keep it!
+            
+            # Keep facts that pass the threshold
             if similarity >= threshold:
-                relevant_facts.append((similarity, relation, obj))
+                relevant_facts.append((similarity, human_sentence))
 
-        # Return all the triplets that passed the threshold
         if not relevant_facts:
-            return "" # None passed the threshold
+            return "" 
 
-        # Sort by highest similarity first (most relevant at the top)
+        # Sort by highest similarity first
         relevant_facts.sort(key=lambda x: x[0], reverse=True)
 
-        # Format cleanly for the LLM prompt
+        # Format using the full human sentences to give the LLM maximum context
         formatted_output = ["--- User Semantic Context ---"]
-        for sim, rel, obj in relevant_facts:
-            formatted_output.append(f"- {rel}: {obj}")
-            print(f"[DEBUG] Retrieved: {rel} {obj} (Score: {sim:.2f})") # Uncomment to debug!
+        for sim, sentence in relevant_facts:
+            formatted_output.append(f"- {sentence}")
+            # TRACEABILITY LOG: Shows the exact text and the final score
+            print(f"[DEBUG] Retrieved: '{sentence}' (Score: {sim:.2f})")
             
         return "\n".join(formatted_output)
 
