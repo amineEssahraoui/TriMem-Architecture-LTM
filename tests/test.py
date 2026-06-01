@@ -5,7 +5,7 @@ import time
 # The URL of your local FastAPI server
 API_URL = "http://127.0.0.1:8000/chat"
 
-def send_message(user_id: str, message: str, wait_time: int = 15):
+def send_message(user_id: str, message: str, wait_time: int = 120):
     """
     Sends a POST request to the API, prints the interaction, 
     and waits for background tasks to complete.
