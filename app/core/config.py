@@ -26,5 +26,8 @@ class Config:
     # Graphe database path
     KNOWLEDGR_GRAPHE_PATH = os.getenv("KNOWLEDGR_GRAPHE_PATH")
 
+    # Universal scops path
+    UNIVERSAL_SOPS_PATH = os.getenv("UNIVERSAL_SOPS_PATH")
+
 # Instantiate the configuration for easy import
 settings = Config()
