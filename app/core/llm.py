@@ -1,31 +1,23 @@
-import ollama
 import re
+from groq import Groq
 from app.core.config import settings
 
-def generate_response(prompt : str, system_prompt: str = "") -> str: # Empty System_prompt by default !
-    """
-    Sends a prompt to the LLM and returns its generated response.
-    """
+groq_client = Groq(api_key=settings.GROQ_API_KEY)
+
+def generate_response(prompt: str, system_prompt: str = "") -> str:
     messages = []
-    if system_prompt: 
-        messages.append({"role": "system", "content" : system_prompt}) # Add system prompte if available
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
 
-    messages.append({"role": "user", "content": prompt}) # Add user prompte
+    response = groq_client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=messages
+    )
+    return response.choices[0].message.content
 
-    try: 
-        response = ollama.chat(
-            model = settings.LLM_MODEL,
-            messages = messages
-        )
-        return response['message']['content']
-    except Exception as e: 
-        print(f"Error communicating with Ollama: {e}")
-        return "Sorry, I am having trouble connecting to my language model."
-    
+
 def get_importance_score(message: str) -> int:
-    """
-    Asks a lightweight LLM to evaluate the importance of the message.
-    """
     system_prompt = (
         "You are a strict Cognitive Memory Classifier for an AI memory database. "
         "Your ONLY job is to detect if a user is DECLARING new, storable facts about themselves. "
@@ -53,7 +45,7 @@ def get_importance_score(message: str) -> int:
         "(e.g., 'My real name is David', 'My new vault code is 7777', 'Always answer in French').\n\n"
 
         "CRITICAL RULES:\n"
-        "1. THE QUESTION TRAP: If the user is ASKING about their own data (e.g., 'What is my password?', 'Who am I?'), the score MUST BE 1. Do not confuse the importance of the topic with the intent of the message.\n"
+        "1. THE QUESTION TRAP: If the user is ASKING about their own data (e.g., 'What is my password?', 'Who am I?'), the score MUST BE 1.\n"
         "2. THE TASK TRAP: Requests for the AI to do work (e.g., 'Fix this code', 'Write an email') MUST BE scored 1-3.\n"
         "3. HIGHEST ELEMENT: If a message contains both a task and a new fact (e.g., 'I am a doctor, write an email for me'), score based on the new fact (e.g., 7).\n\n"
 
@@ -63,26 +55,20 @@ def get_importance_score(message: str) -> int:
     )
 
     try:
-        # We explicitly use the tiny model here for speed!
-        response = ollama.chat(
-            model=settings.SCORING_MODEL, 
+        response = groq_client.chat.completions.create(
+            model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
             ]
         )
-        
-        output_text = response['message']['content']
-        
-        # Regex to extract the first number found in the output (in case the LLM disobeys and writes text)
+
+        output_text = response.choices[0].message.content
         numbers = re.findall(r'\d+', output_text)
         if numbers:
-            score = int(numbers[0])
-            # Ensure the score stays within the 1-10 bounds
-            return max(1, min(10, score))
-            
-        return 5 # Default fallback
-        
+            return max(1, min(10, int(numbers[0])))
+        return 5
+
     except Exception as e:
         print(f"Scoring error: {e}")
-        return 5 # Default fallback if Ollama crashes
+        return 5
