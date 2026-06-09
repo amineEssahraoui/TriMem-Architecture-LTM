@@ -6,6 +6,7 @@ from app.core.embedding import get_embedding
 from app.memory.episodic import episodic_memory
 from app.memory.semantic import semantic_memory
 from app.memory.procedural import procedural_memory
+from app.memory.consolidation import memory_consolidation
 
 router = APIRouter()
 
@@ -47,6 +48,8 @@ def save_memory_background(user_id: str, user_message: str, ai_response: str, em
             source_id=memory_id,
             embedding_function=get_embedding
         )
+        
+    memory_consolidation.increment_and_check(user_id, get_embedding)
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks):

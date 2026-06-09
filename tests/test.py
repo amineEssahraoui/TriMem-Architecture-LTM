@@ -3,7 +3,7 @@ import json
 import time
 
 API_URL = "http://127.0.0.1:8000/chat"
-WAIT = 90  # seconds for background tasks to complete
+WAIT = 10  # seconds for background tasks to complete
 
 def send_message(user_id: str, message: str, wait: int = WAIT):
     print(f"\n[{user_id.upper()}] >>> {message}")

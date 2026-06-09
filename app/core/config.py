@@ -29,5 +29,8 @@ class Config:
     # Universal scops path
     UNIVERSAL_SOPS_PATH = os.getenv("UNIVERSAL_SOPS_PATH")
 
+    # trigger every N interactions
+    CONSOLIDATION_N = int(os.getenv("CONSOLIDATION_N"))
+
 # Instantiate the configuration for easy import
 settings = Config()
