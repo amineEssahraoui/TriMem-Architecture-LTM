@@ -5,6 +5,8 @@ from app.core.llm import generate_response, get_importance_score
 from app.core.embedding import get_embedding
 from app.memory.episodic import episodic_memory
 from app.memory.semantic import semantic_memory
+from app.memory.procedural import procedural_memory
+
 router = APIRouter()
 
 class ChatRequest(BaseModel):
@@ -32,10 +34,18 @@ def save_memory_background(user_id: str, user_message: str, ai_response: str, em
 
     if score >= 6:
         print(f"[Background Task] Score {score} >= 6. Triggering Semantic Graph Pipeline...")
+
         semantic_memory.extract_and_save_facts(
             user_id=user_id,
             text=user_message,
             source_id=memory_id
+        )
+
+        procedural_memory.extract_and_save_sop(
+            user_id=user_id,
+            text=user_message,
+            source_id=memory_id,
+            embedding_function=get_embedding
         )
 
 @router.post("/chat", response_model=ChatResponse)
@@ -58,26 +68,39 @@ async def chat_endpoint(request: ChatRequest, background_tasks: BackgroundTasks)
             threshold=0.5
         )
 
+        procedural_context = procedural_memory.get_relevant_sops(
+            user_id=request.user_id,
+            query_text=request.message,
+            embedding_function=get_embedding
+        )
+
         if episodic_context or semantic_context:
             system_prompt = (
-                "You are an intelligent, natural, and helpful AI assistant.\n"
-                "Use the following past context and known facts to inform your response. "
-                "If they are irrelevant, ignore them.\n\n"
+                "You are TriMem, an intelligent AI assistant with a persistent multi-layered memory system.\n"
+                "You remember who the user is, what they know, and how they want to be helped.\n\n"
 
                 "RULES:\n"
-                "1. GROUND TRUTH OVERRIDE: The 'FACTS CONTEXT' (Semantic Memory) is the absolute, most up-to-date truth. If there is a conflict between past conversations and known facts (e.g., an updated password or changed name), ALWAYS trust the FACTS CONTEXT.\n"
-                "2. RELEVANCE: Only use memory when relevant to the user's latest message.\n"
-                "3. NO INVENTION: Do NOT fabricate memories, facts, events, or user information.\n"
-                "4. TONE: Be warm, professional, and natural. Do NOT use excessive emojis. Speak like a helpful human colleague.\n"
-                "5. NO THINKING: DO NOT output thinking process, internal monologue, chain-of-thought, or reasoning steps. Output ONLY your final conversational response.\n\n"
+                "1. GROUND TRUTH OVERRIDE: The 'FACTS CONTEXT' (Semantic Memory) is the absolute, most up-to-date truth. "
+                "If there is a conflict between past conversations and known facts (e.g., an updated vault code, changed OS, new role), ALWAYS trust the FACTS CONTEXT.\n"
+                "2. PROCEDURAL FIRST: Before formulating your response, read the BEHAVIORAL RULES. "
+                "If a rule applies to this query, follow it unconditionally. User personal rules override system guidelines.\n"
+                "3. RELEVANCE: Only use memory when it genuinely adds value. If memory is irrelevant to the question, simply answer the question.\n"
+                "4. NO INVENTION: Do NOT fabricate memories, facts, or user information. If you do not know something, say so.\n"
+                "5. USER ISOLATION: You are talking to ONE user. Never reference or reveal data from other users.\n"
+                "6. TONE: Be warm, direct, and professional. Speak like a knowledgeable colleague, not a customer service bot. No excessive emojis.\n"
+                "7. NO THINKING: DO NOT output reasoning steps, internal monologue, or chain-of-thought. Output ONLY your final response.\n\n"
 
-                f"=== PAST CONTEXT (Past conversations with this user) ===\n"
+                f"=== PAST CONTEXT (Episodic Memory — Past Conversations) ===\n"
                 f"{episodic_context}\n"
-                f"========================================================\n\n"
+                f"===========================================================\n\n"
 
-                f"=== FACTS CONTEXT (Absolute Ground Truth about this user) ===\n"
+                f"=== FACTS CONTEXT (Semantic Memory — Absolute Ground Truth) ===\n"
                 f"{semantic_context}\n"
-                f"=============================================================\n\n"
+                f"================================================================\n\n"
+
+                f"=== BEHAVIORAL RULES (Procedural Memory — Follow Unconditionally) ===\n"
+                f"{procedural_context}\n"
+                f"======================================================================\n\n"
 
                 "Respond naturally to the user's latest message."
             )

@@ -84,35 +84,31 @@ class ProceduralMemory:
 
             "--- CLASSIFICATION RULES ---\n"
             "1. SCOPE (CRITICAL):\n"
-            "   - 'global': The rule applies to ALL interactions, regardless of the topic (e.g., tone, language, general response length, overall formatting).\n"
-            "   - 'task_specific': The rule ONLY applies when performing a specific action (e.g., writing code, drafting emails, analyzing papers, formatting a sprint update).\n"
-            "   -> STRICT GUARDRAIL: If the user mentions a specific domain (code, email, research, math, sprint), the scope MUST be 'task_specific'. NEVER classify a domain-specific rule as 'global'.\n\n"
+            "   - 'global': UNCONDITIONAL RULES. The rule applies universally to EVERY SINGLE interaction, regardless of the topic (e.g., 'Always speak French', 'Be concise', 'Never use emojis').\n"
+            "   - 'task_specific': CONDITIONAL RULES. The rule ONLY activates under a specific condition, when performing a specific task, or discussing a specific topic (e.g., 'When writing code...', 'If drafting an email...', 'For research papers...').\n"
+            "   -> STRICT RULE: If the user's instruction contains \"when...\", \"if...\", or targets a specific activity (code, emails, math, summaries), it MUST be classified as 'task_specific'.\n\n"
 
             "2. TASK TAG:\n"
-            "   - If scope is 'task_specific', generate a highly concise 1-2 word tag representing the context (e.g., 'python_coding', 'email_drafting', 'research_analysis').\n"
-            "   - If scope is 'global', this field MUST be exactly null (the JSON value, not a string).\n\n"
+            "   - If 'task_specific', generate a broad, generic 1-2 word category tag (e.g., 'programming', 'email_writing', 'research_analysis', 'project_management').\n"
+            "   - If 'global', this field MUST be exactly null.\n\n"
 
-            "3. EXCLUSIONS (When to output {\"found\": false}):\n"
-            "   - Casual conversation or greetings (e.g., 'Hello, how are you?').\n"
-            "   - One-time task requests (e.g., 'Write an email for me today', 'Fix this bug').\n"
-            "   - Semantic facts about the user (e.g., 'I live in Paris', 'My name is John') -> These are identity facts, NOT procedural instructions.\n\n"
+            "3. EXCLUSIONS (Output {\"found\": false}):\n"
+            "   - Casual chat or greetings.\n"
+            "   - Ephemeral one-time tasks ('Fix this specific bug', 'Draft an email for me today').\n"
+            "   - Identity facts ('I live in Paris', 'I am an engineer').\n\n"
 
             "--- EXAMPLES ---\n"
             "User: 'From now on, always speak to me in French.'\n"
-            "Output: {\"found\": true, \"instruction\": \"Always respond to the user in French.\", \"scope\": \"global\", \"task_tag\": null}\n\n"
+            "Output: {\"found\": true, \"instruction\": \"Always respond in French.\", \"scope\": \"global\", \"task_tag\": null}\n\n"
 
-            "User: 'Whenever I ask you to write a Python script, make sure to include type hints.'\n"
-            "Output: {\"found\": true, \"instruction\": \"Always include type hints when writing Python code.\", \"scope\": \"task_specific\", \"task_tag\": \"python_coding\"}\n\n"
+            "User: 'When you write code, strictly use Object-Oriented Programming (OOP) and classes.'\n"
+            "Output: {\"found\": true, \"instruction\": \"Always use OOP and classes when writing code.\", \"scope\": \"task_specific\", \"task_tag\": \"programming\"}\n\n"
 
-            "User: 'Can you help me summarize this PDF?'\n"
-            "Output: {\"found\": false}\n\n"
-
-            "User: 'Never use bullet points.'\n"
-            "Output: {\"found\": true, \"instruction\": \"Never use bullet points in any response.\", \"scope\": \"global\", \"task_tag\": null}\n\n"
+            "User: 'Keep all email drafts under 3 sentences.'\n"
+            "Output: {\"found\": true, \"instruction\": \"Keep email drafts under 3 sentences.\", \"scope\": \"task_specific\", \"task_tag\": \"email_writing\"}\n\n"
 
             "--- OUTPUT FORMAT ---\n"
-            "Return ONLY a valid JSON object. No preamble, no markdown formatting, no explanations. "
-            "Adhere strictly to this schema:\n"
+            "Return ONLY a valid JSON object. No preamble, no markdown formatting. Schema:\n"
             "{\"found\": boolean, \"instruction\": string, \"scope\": \"global\" | \"task_specific\", \"task_tag\": string | null}"
         )
 
@@ -144,7 +140,11 @@ class ProceduralMemory:
             # Build a unique SOP ID for this user + instruction
             sop_id = f"{user_id}_sop_{source_id}"
 
-            searchable_document = f"Task: {task_tag}. Instruction: {instruction}" if task_tag else instruction
+            if scope == "task_specific" and task_tag:
+                clean_tag = task_tag.replace('_', ' ')
+                searchable_document = f"Task category: {clean_tag}. Action to apply: {instruction}"
+            else:
+                searchable_document = instruction
 
             # Embed the instruction text (using the enriched document)
             embedding = embedding_function(searchable_document)
@@ -174,7 +174,7 @@ class ProceduralMemory:
         Retrieves the most relevant SOPs for the current query.
         Hierarchy: Personal Global (All) → Personal Specific (Vector Match) → Universal (Vector Match)
         """
-        query_embedding = embedding_function(f"search_query: {query_text}")
+        query_embedding = embedding_function(query_text)
         sections = []
 
         # Personal Global SOPs (Fetch them all directly)
@@ -243,10 +243,10 @@ class ProceduralMemory:
             docs = results.get("documents", [[]])[0]
             distances = results.get("distances", [[]])[0]
 
-            # Filter by similarity threshold (distance < 0.5 in cosine space)
+            # Filter by similarity threshold (distance in cosine space)
             filtered = [
                 doc for doc, dist in zip(docs, distances)
-                if dist < 0.6
+                if dist < 0.60
             ]
 
             return filtered
